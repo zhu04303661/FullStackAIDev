@@ -8,52 +8,21 @@ export async function action(args: ActionFunctionArgs) {
   return chatAction(args);
 }
 
-async function chatAction({ context, request }: ActionFunctionArgs) {
-  const { messages } = await request.json<{ messages: Messages }>();
-
-  const stream = new SwitchableStream();
-
+async function chatAction({ request }: ActionFunctionArgs) {
   try {
-    const options: StreamingOptions = {
-      toolChoice: 'none',
-      onFinish: async ({ text: content, finishReason }) => {
-        if (finishReason !== 'length') {
-          return stream.close();
-        }
-
-        if (stream.switches >= MAX_RESPONSE_SEGMENTS) {
-          throw Error('Cannot continue message: Maximum segments reached');
-        }
-
-        const switchesLeft = MAX_RESPONSE_SEGMENTS - stream.switches;
-
-        console.log(`Reached max token limit (${MAX_TOKENS}): Continuing message (${switchesLeft} switches left)`);
-
-        messages.push({ role: 'assistant', content });
-        messages.push({ role: 'user', content: CONTINUE_PROMPT });
-
-        const result = await streamText(messages, context.cloudflare.env, options);
-
-        return stream.switchSource(result.toAIStream());
-      },
-    };
-
-    const result = await streamText(messages, context.cloudflare.env, options);
-
-    stream.switchSource(result.toAIStream());
-
-    return new Response(stream.readable, {
-      status: 200,
-      headers: {
-        contentType: 'text/plain; charset=utf-8',
-      },
-    });
+    const { messages } = await request.json<{ messages: Messages }>();
+    return await streamText(messages);
   } catch (error) {
-    console.log(error);
-
-    throw new Response(null, {
-      status: 500,
-      statusText: 'Internal Server Error',
+    console.error('Chat Action Error:', error);
+    
+    return new Response(
+      JSON.stringify({ 
+        error: error.message || '处理请求时发生错误' 
+      }), {
+      status: error.status || 500,
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
   }
 }

@@ -1,35 +1,26 @@
-import { streamText as _streamText, convertToCoreMessages } from 'ai';
-import { getAPIKey } from '~/lib/.server/llm/api-key';
-import { getAnthropicModel } from '~/lib/.server/llm/model';
-import { MAX_TOKENS } from './constants';
+import { getApiKey } from './api-key';
+import { handleLLMStream } from './model';
+import { MODELS } from './constants';
+import { convertToCoreMessages } from 'ai';
 import { getSystemPrompt } from './prompts';
 
-interface ToolResult<Name extends string, Args, Result> {
-  toolCallId: string;
-  toolName: Name;
-  args: Args;
-  result: Result;
+export async function streamText(messages: any[]) {
+  try {
+    // 确保消息数组包含系统提示
+    const systemPrompt = getSystemPrompt();
+    const allMessages = [
+      { role: 'system', content: systemPrompt },
+      ...messages
+    ];
+
+    return await handleLLMStream(
+      convertToCoreMessages(allMessages),
+      systemPrompt,
+      MODELS.GPT4O
+    );
+  } catch (error) {
+    console.error('Stream Text Error:', error);
+    throw new Error(`处理文本流时发生错误: ${error.message}`);
+  }
 }
 
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-  toolInvocations?: ToolResult<string, unknown, unknown>[];
-}
-
-export type Messages = Message[];
-
-export type StreamingOptions = Omit<Parameters<typeof _streamText>[0], 'model'>;
-
-export function streamText(messages: Messages, env: Env, options?: StreamingOptions) {
-  return _streamText({
-    model: getAnthropicModel(getAPIKey(env)),
-    system: getSystemPrompt(),
-    maxTokens: MAX_TOKENS,
-    headers: {
-      'anthropic-beta': 'max-tokens-3-5-sonnet-2024-07-15',
-    },
-    messages: convertToCoreMessages(messages),
-    ...options,
-  });
-}

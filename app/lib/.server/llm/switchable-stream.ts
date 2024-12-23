@@ -64,3 +64,4 @@ export default class SwitchableStream extends TransformStream {
     return this._switches;
   }
 }
+

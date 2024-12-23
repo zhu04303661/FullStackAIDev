@@ -10,6 +10,11 @@ export default defineConfig((config) => {
     build: {
       target: 'esnext',
     },
+    server: {
+      port: 5173,
+      strictPort: true,
+      host: '0.0.0.0', // 添加 host 配置
+    },
     plugins: [
       nodePolyfills({
         include: ['path', 'buffer'],
